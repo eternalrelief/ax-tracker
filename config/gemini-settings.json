@@ -1,0 +1,71 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "name": "ax-tracker-session-start",
+            "type": "command",
+            "command": "~/.ax-tracker/scripts/gc-logger.sh"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "name": "ax-tracker-session-end",
+            "type": "command",
+            "command": "~/.ax-tracker/scripts/gc-logger.sh"
+          }
+        ]
+      }
+    ],
+    "BeforeAgent": [
+      {
+        "hooks": [
+          {
+            "name": "ax-tracker-prompt",
+            "type": "command",
+            "command": "~/.ax-tracker/scripts/gc-logger.sh"
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "name": "ax-tracker-response",
+            "type": "command",
+            "command": "~/.ax-tracker/scripts/gc-logger.sh"
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "ax-tracker-tool",
+            "type": "command",
+            "command": "~/.ax-tracker/scripts/gc-logger.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompress": [
+      {
+        "hooks": [
+          {
+            "name": "ax-tracker-compress",
+            "type": "command",
+            "command": "~/.ax-tracker/scripts/gc-logger.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

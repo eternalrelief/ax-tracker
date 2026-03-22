@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AX事業部 工数トラッカー</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --blue-primary: #1a56db;
+    --blue-dark: #0c2d6b;
+    --blue-light: #e8f0fe;
+    --orange: #e67e22;
+    --green: #27ae60;
+    --red: #e74c3c;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-400: #9ca3af;
+    --gray-600: #4b5563;
+    --gray-800: #1f2937;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Helvetica Neue', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    background: var(--gray-100);
+    color: var(--gray-800);
+    line-height: 1.6;
+  }
+  .header {
+    background: linear-gradient(135deg, var(--blue-dark), var(--blue-primary));
+    color: white;
+    padding: 32px 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    top: -50%; right: -10%;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    border: 60px solid rgba(255,255,255,0.05);
+  }
+  .header h1 { font-size: 28px; font-weight: 700; }
+  .header .subtitle { font-size: 14px; opacity: 0.8; margin-top: 4px; }
+  .header .logo { position: absolute; right: 48px; bottom: 16px; font-size: 13px; opacity: 0.7; font-weight: 600; letter-spacing: 1px; }
+  .nav {
+    background: white;
+    border-bottom: 1px solid var(--gray-200);
+    padding: 0 48px;
+    display: flex;
+    gap: 0;
+  }
+  .nav a {
+    display: block; padding: 12px 20px; text-decoration: none;
+    font-size: 13px; font-weight: 600; color: var(--gray-400);
+    border-bottom: 3px solid transparent; transition: all 0.2s;
+  }
+  .nav a:hover { color: var(--gray-600); }
+  .nav a.active { color: var(--blue-primary); border-bottom-color: var(--blue-primary); }
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+  .section-title {
+    color: var(--orange); font-size: 13px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px;
+  }
+  .section-heading {
+    font-size: 22px; font-weight: 700; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .section-heading .sub { font-size: 14px; color: var(--gray-400); font-weight: 400; }
+  .card {
+    background: white; border-radius: 12px; padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 24px;
+  }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px; margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: white; border-radius: 12px; padding: 20px 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .kpi-card .label { font-size: 13px; color: var(--gray-600); font-weight: 500; }
+  .kpi-card .value { font-size: 36px; font-weight: 700; margin: 4px 0; }
+  .kpi-card .value .unit { font-size: 18px; font-weight: 400; }
+  .kpi-card .detail { font-size: 12px; color: var(--gray-400); }
+  .chart-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;
+  }
+  @media (max-width: 768px) { .chart-row { grid-template-columns: 1fr; } }
+  .chart-container { position: relative; height: 300px; }
+  .chart-label { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th {
+    background: var(--blue-light); color: var(--blue-dark); font-weight: 600;
+    padding: 10px 12px; text-align: right; white-space: nowrap;
+  }
+  .data-table th:first-child { text-align: left; border-radius: 8px 0 0 0; }
+  .data-table th:last-child { border-radius: 0 8px 0 0; }
+  .data-table td {
+    padding: 10px 12px; text-align: right;
+    border-bottom: 1px solid var(--gray-200); white-space: nowrap;
+  }
+  .data-table td:first-child { text-align: left; font-weight: 500; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table .total-row { font-weight: 700; background: var(--gray-50); }
+  .data-table .total-row td { border-top: 2px solid var(--blue-primary); }
+  .settings-panel {
+    background: white; border-radius: 12px; padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 24px;
+  }
+  .settings-panel summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--gray-600); }
+  .settings-panel .fields {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;
+  }
+  @media (max-width: 768px) { .settings-panel .fields { grid-template-columns: 1fr; } }
+  .settings-panel label { font-size: 12px; color: var(--gray-600); font-weight: 500; display: block; margin-bottom: 4px; }
+  .settings-panel input {
+    width: 100%; padding: 8px 12px; border: 1px solid var(--gray-200);
+    border-radius: 6px; font-size: 13px; font-family: monospace;
+  }
+  .btn {
+    display: inline-block; padding: 8px 20px; border-radius: 6px;
+    font-size: 13px; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary { background: var(--blue-primary); color: white; }
+  .btn-primary:hover { background: var(--blue-dark); }
+  .btn-secondary { background: var(--gray-200); color: var(--gray-600); }
+  .btn-secondary:hover { background: var(--gray-400); color: white; }
+  .btn-group { display: flex; gap: 8px; margin-top: 16px; }
+  .status-bar { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--gray-400); margin-bottom: 16px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray-400); }
+  .status-dot.connected { background: var(--green); }
+  .status-dot.demo { background: var(--orange); }
+  .status-dot.error { background: var(--red); }
+  .date-range { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .date-range input[type="date"] {
+    padding: 6px 10px; border: 1px solid var(--gray-200);
+    border-radius: 6px; font-size: 13px; font-family: inherit;
+  }
+  .date-range .sep { color: var(--gray-400); }
+  .divider { border: none; border-top: 2px solid var(--gray-200); margin: 32px 0; }
+  .footer { text-align: center; padding: 24px; font-size: 12px; color: var(--gray-400); }
+  .member-avatar {
+    width: 24px; height: 24px; border-radius: 50%; background: var(--blue-primary);
+    color: white; font-size: 11px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-right: 6px; vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>AX事業部 工数トラッカー</h1>
+  <div class="subtitle">Googleカレンダー日報 自動集計ダッシュボード</div>
+  <div class="logo">デジタルゴリラ</div>
+</div>
+
+<div class="nav">
+  <a href="../diggorilla-ax-dashboard/index.html">事業実績</a>
+  <a href="#" class="active">工数トラッカー</a>
+</div>
+
+<div class="container">
+
+  <details class="settings-panel" id="settingsPanel">
+    <summary>Supabase 接続設定</summary>
+    <div class="fields">
+      <div>
+        <label>Supabase URL</label>
+        <input type="text" id="supabaseUrl" placeholder="https://xxxxx.supabase.co">
+      </div>
+      <div>
+        <label>Supabase Anon Key</label>
+        <input type="password" id="supabaseKey" placeholder="eyJxxx...">
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="connectAndLoad()">接続</button>
+      <button class="btn btn-secondary" onclick="loadDemoData()">デモデータで表示</button>
+    </div>
+  </details>
+
+  <div class="status-bar">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText">未接続</span>
+  </div>
+
+  <div class="date-range">
+    <input type="date" id="dateFrom" onchange="onDateChange()">
+    <span class="sep">〜</span>
+    <input type="date" id="dateTo" onchange="onDateChange()">
+    <button class="btn btn-secondary" onclick="setRange('today')">今日</button>
+    <button class="btn btn-secondary" onclick="setRange('week')">今週</button>
+    <button class="btn btn-secondary" onclick="setRange('month')">今月</button>
+  </div>
+
+  <!-- KPI -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="label">チーム合計稼働</div>
+      <div class="value" id="kpiTotalH">--<span class="unit">h</span></div>
+      <div class="detail" id="kpiTotalDays">-- 人日</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">稼働メンバー</div>
+      <div class="value" id="kpiMembers">--<span class="unit">人</span></div>
+      <div class="detail" id="kpiAvgH">平均 --h/人</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">顧客数</div>
+      <div class="value" id="kpiClients">--<span class="unit">社</span></div>
+      <div class="detail" id="kpiTopClient">--</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">日報提出率</div>
+      <div class="value" id="kpiSubmitRate">--<span class="unit">%</span></div>
+      <div class="detail" id="kpiSubmitDetail">--</div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section-title">Client Breakdown</div>
+  <div class="section-heading">顧客別 工数 <span class="sub">（日報集計）</span></div>
+
+  <div class="chart-row">
+    <div class="card">
+      <div class="chart-label">顧客別 稼働時間</div>
+      <div class="chart-container"><canvas id="clientHoursChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="chart-label">顧客別 構成比</div>
+      <div class="chart-container"><canvas id="clientDonutChart"></canvas></div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section-title">Member Activity</div>
+  <div class="section-heading">メンバー別 稼働時間</div>
+
+  <div class="chart-row">
+    <div class="card">
+      <div class="chart-label">メンバー別 合計時間</div>
+      <div class="chart-container"><canvas id="memberHoursChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="chart-label">日別稼働推移</div>
+      <div class="chart-container"><canvas id="dailyTrendChart"></canvas></div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section-title">Client × Member</div>
+  <div class="section-heading">顧客別 詳細テーブル</div>
+
+  <div class="card">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="text-align:left">顧客名</th>
+          <th>合計時間</th>
+          <th>担当者数</th>
+          <th>日報件数</th>
+          <th>構成比</th>
+        </tr>
+      </thead>
+      <tbody id="clientTableBody">
+        <tr><td colspan="5" style="text-align:center;color:var(--gray-400)">データなし</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section-title">Member Detail</div>
+  <div class="section-heading">メンバー別 詳細テーブル</div>
+
+  <div class="card">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="text-align:left">メンバー</th>
+          <th>合計時間</th>
+          <th>顧客数</th>
+          <th>日報数</th>
+          <th>平均/日</th>
+        </tr>
+      </thead>
+      <tbody id="memberTableBody">
+        <tr><td colspan="5" style="text-align:center;color:var(--gray-400)">データなし</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section-title">Category Breakdown</div>
+  <div class="section-heading">案件カテゴリ別 工数</div>
+
+  <div class="card">
+    <div class="chart-container" style="height:250px;">
+      <canvas id="categoryChart"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  AX事業部 工数トラッカー — データソース: Googleカレンダー日報（worklog-auto.gs → Supabase Storage）
+</div>
+
+<script>
+// ========== State ==========
+let allWorklogs = []; // Array of worklog summary JSONs
+let profiles = {};    // uid -> profile
+let chartInstances = {};
+const COLORS = ['#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1'];
+const BUCKET = 'ax-tracker-logs';
+const DEFAULT_URL = 'https://ccbyeaxfcnvnnotcurrk.supabase.co';
+const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjYnllYXhmY252bm5vdGN1cnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNTEzMzcsImV4cCI6MjA4OTcyNzMzN30.b21WhWIAayql8WhZaayZZlhYMU0MXo3EbhOv-USBdek';
+
+// ========== Init ==========
+document.addEventListener('DOMContentLoaded', () => {
+  setRange('month');
+  const saved = JSON.parse(localStorage.getItem('ax-tracker-settings') || '{}');
+  document.getElementById('supabaseUrl').value = saved.url || DEFAULT_URL;
+  document.getElementById('supabaseKey').value = saved.key || DEFAULT_KEY;
+  connectAndLoad();
+});
+
+// ========== Date ==========
+function fmt(d) { return d.toISOString().slice(0, 10); }
+
+function setRange(preset) {
+  const today = new Date();
+  let from;
+  if (preset === 'today') { from = fmt(today); }
+  else if (preset === 'week') {
+    from = fmt(new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7)));
+  } else {
+    from = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
+  }
+  document.getElementById('dateFrom').value = from;
+  document.getElementById('dateTo').value = fmt(today);
+  if (allWorklogs.length > 0) renderAll();
+}
+
+function onDateChange() { if (allWorklogs.length > 0) renderAll(); }
+function getRange() {
+  return { from: document.getElementById('dateFrom').value, to: document.getElementById('dateTo').value };
+}
+
+// ========== Supabase fetch ==========
+function sbHeaders() {
+  const key = document.getElementById('supabaseKey').value;
+  return { 'Authorization': `Bearer ${key}`, 'apikey': key, 'Content-Type': 'application/json' };
+}
+function sbUrl() { return document.getElementById('supabaseUrl').value.replace(/\/$/, ''); }
+
+async function connectAndLoad() {
+  const url = sbUrl();
+  const key = document.getElementById('supabaseKey').value;
+  if (!url || !key) { loadDemoData(); return; }
+
+  localStorage.setItem('ax-tracker-settings', JSON.stringify({ url, key }));
+  setStatus('connected', '読み込み中...');
+
+  try {
+    // List user directories
+    const dirsRes = await fetch(`${url}/storage/v1/object/list/${BUCKET}`, {
+      method: 'POST', headers: sbHeaders(),
+      body: JSON.stringify({ prefix: '', limit: 1000, offset: 0 })
+    });
+    if (!dirsRes.ok) throw new Error(`${dirsRes.status}`);
+    const dirs = await dirsRes.json();
+
+    allWorklogs = [];
+    profiles = {};
+    const { from, to } = getRange();
+
+    for (const dir of dirs) {
+      if (!dir.name || dir.name === '.emptyFolderPlaceholder') continue;
+      const uid = dir.name;
+
+      // Load profile
+      try {
+        const pRes = await fetch(`${url}/storage/v1/object/${BUCKET}/${uid}/profile.json`, { headers: sbHeaders() });
+        if (pRes.ok) profiles[uid] = await pRes.json();
+      } catch (e) { /* skip */ }
+
+      // List worklogs directory
+      const wlRes = await fetch(`${url}/storage/v1/object/list/${BUCKET}`, {
+        method: 'POST', headers: sbHeaders(),
+        body: JSON.stringify({ prefix: `${uid}/worklogs/`, limit: 1000, offset: 0 })
+      });
+      if (!wlRes.ok) continue;
+      const files = await wlRes.json();
+
+      // Load JSON worklogs in date range
+      for (const file of files) {
+        if (!file.name.endsWith('.json')) continue;
+        const fileDate = file.name.replace('.json', '');
+        if (fileDate < from || fileDate > to) continue;
+
+        try {
+          const fRes = await fetch(`${url}/storage/v1/object/${BUCKET}/${uid}/worklogs/${file.name}`, { headers: sbHeaders() });
+          if (!fRes.ok) continue;
+          const wl = await fRes.json();
+          wl._uid = uid;
+          allWorklogs.push(wl);
+        } catch (e) { /* skip */ }
+      }
+    }
+
+    setStatus('connected', `接続済み — ${allWorklogs.length} 件の日報読み込み`);
+    document.getElementById('settingsPanel').removeAttribute('open');
+    if (allWorklogs.length === 0) {
+      loadDemoData();
+      return;
+    }
+    renderAll();
+  } catch (e) {
+    setStatus('error', `接続エラー: ${e.message}`);
+    loadDemoData();
+  }
+}
+
+// ========== Demo ==========
+function loadDemoData() {
+  setStatus('demo', 'デモデータ表示中');
+
+  const members = [
+    { uid: 'a1', name: '田中太郎', email: 'tanaka@degigori.jp' },
+    { uid: 'b2', name: '鈴木花子', email: 'suzuki@degigori.jp' },
+    { uid: 'c3', name: '佐藤一郎', email: 'sato@degigori.jp' },
+    { uid: 'd4', name: '高橋恵美', email: 'takahashi@degigori.jp' },
+    { uid: 'e5', name: '伊藤健二', email: 'ito@degigori.jp' },
+    { uid: 'f6', name: '山本真理', email: 'yamamoto@degigori.jp' },
+    { uid: 'g7', name: '中村拓也', email: 'nakamura@degigori.jp' },
+    { uid: 'h8', name: '小林美咲', email: 'kobayashi@degigori.jp' },
+  ];
+  const clientPool = [
+    '川口印刷', 'ブレイク', '丸善工業', 'サンライズ', 'フジタ建設',
+    'メディカルラボ', 'アクセル商事', 'NextGen'
+  ];
+  const catPool = ['AI導入支援', '研修', '制作/開発', 'AI講座', '社内MTG', '営業', '1on1'];
+
+  allWorklogs = [];
+  profiles = {};
+  const { from, to } = getRange();
+  const fromD = new Date(from), toD = new Date(to);
+
+  for (const m of members) {
+    profiles[m.uid] = { uid: m.uid, name: m.name, email: m.email };
+  }
+
+  for (let d = new Date(fromD); d <= toD; d.setDate(d.getDate() + 1)) {
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) continue;
+    const dateStr = fmt(d);
+
+    for (const m of members) {
+      if (Math.random() > 0.75) continue; // 25% chance absent
+      const numClients = 1 + Math.floor(Math.random() * 3);
+      const clients = [];
+      const timeline = [];
+      let hour = 9;
+
+      for (let i = 0; i < numClients; i++) {
+        const client = clientPool[Math.floor(Math.random() * clientPool.length)];
+        const cat = catPool[Math.floor(Math.random() * catPool.length)];
+        const h = 0.5 + Math.round(Math.random() * 3 * 10) / 10;
+        const mins = Math.round(h * 60);
+        clients.push({ name: client, hours: h, minutes: mins, count: 1 });
+        const startH = String(hour).padStart(2, '0') + ':00';
+        hour += Math.ceil(h);
+        const endH = String(Math.min(hour, 18)).padStart(2, '0') + ':00';
+        timeline.push({ start: startH, end: endH, hours: h, client, title: `[${client}] ${cat}`, project: cat });
+      }
+
+      const totalH = clients.reduce((s, c) => s + c.hours, 0);
+      allWorklogs.push({
+        date: dateStr,
+        uid: m.uid,
+        email: m.email,
+        name: m.name,
+        total_hours: Math.round(totalH * 10) / 10,
+        total_minutes: Math.round(totalH * 60),
+        event_count: numClients,
+        clients: clients,
+        categories: timeline.map(t => ({ name: t.project, hours: t.hours, minutes: Math.round(t.hours * 60), count: 1 })),
+        timeline: timeline,
+        _uid: m.uid,
+      });
+    }
+  }
+
+  document.getElementById('settingsPanel').removeAttribute('open');
+  renderAll();
+}
+
+// ========== Aggregation ==========
+function aggregate() {
+  const { from, to } = getRange();
+  const wls = allWorklogs.filter(w => w.date >= from && w.date <= to);
+
+  // Members
+  const memberMap = {};
+  for (const w of wls) {
+    const uid = w._uid || w.uid;
+    if (!memberMap[uid]) {
+      const p = profiles[uid] || {};
+      memberMap[uid] = { uid, name: w.name || p.name || uid, hours: 0, reports: 0, clients: new Set() };
+    }
+    memberMap[uid].hours += w.total_hours || 0;
+    memberMap[uid].reports += 1;
+    (w.clients || []).forEach(c => memberMap[uid].clients.add(c.name));
+  }
+  const members = Object.values(memberMap).sort((a, b) => b.hours - a.hours);
+
+  // Clients
+  const clientMap = {};
+  for (const w of wls) {
+    for (const c of (w.clients || [])) {
+      if (!clientMap[c.name]) clientMap[c.name] = { name: c.name, hours: 0, members: new Set(), reports: 0 };
+      clientMap[c.name].hours += c.hours;
+      clientMap[c.name].members.add(w._uid || w.uid);
+      clientMap[c.name].reports += 1;
+    }
+  }
+  const clients = Object.values(clientMap).sort((a, b) => b.hours - a.hours);
+
+  // Categories
+  const catMap = {};
+  for (const w of wls) {
+    for (const c of (w.categories || [])) {
+      if (!catMap[c.name]) catMap[c.name] = { name: c.name, hours: 0, count: 0 };
+      catMap[c.name].hours += c.hours;
+      catMap[c.name].count += c.count;
+    }
+  }
+  const categories = Object.values(catMap).sort((a, b) => b.hours - a.hours);
+
+  // Daily
+  const dailyMap = {};
+  for (const w of wls) {
+    if (!dailyMap[w.date]) dailyMap[w.date] = { date: w.date, hours: 0, members: new Set() };
+    dailyMap[w.date].hours += w.total_hours || 0;
+    dailyMap[w.date].members.add(w._uid || w.uid);
+  }
+  const daily = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+
+  const totalH = members.reduce((s, m) => s + m.hours, 0);
+  const totalReports = wls.length;
+
+  // Business days in range
+  let bizDays = 0;
+  for (let d = new Date(from); d <= new Date(to); d.setDate(d.getDate() + 1)) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) bizDays++;
+  }
+  const expectedReports = bizDays * Object.keys(profiles).length;
+  const submitRate = expectedReports > 0 ? Math.round(totalReports / expectedReports * 100) : 0;
+
+  const topClient = clients.length > 0 ? clients[0].name : '--';
+
+  return { members, clients, categories, daily, totalH, totalReports, submitRate, expectedReports, topClient, bizDays };
+}
+
+// ========== Render ==========
+function renderAll() {
+  const d = aggregate();
+  // KPI
+  el('kpiTotalH').innerHTML = `${d.totalH.toFixed(1)}<span class="unit">h</span>`;
+  el('kpiTotalDays').textContent = `${(d.totalH / 8).toFixed(1)} 人日`;
+  el('kpiMembers').innerHTML = `${d.members.length}<span class="unit">人</span>`;
+  el('kpiAvgH').textContent = d.members.length > 0 ? `平均 ${(d.totalH / d.members.length).toFixed(1)}h/人` : '--';
+  el('kpiClients').innerHTML = `${d.clients.length}<span class="unit">社</span>`;
+  el('kpiTopClient').textContent = `最多: ${d.topClient}`;
+  el('kpiSubmitRate').innerHTML = `${d.submitRate}<span class="unit">%</span>`;
+  el('kpiSubmitDetail').textContent = `${d.totalReports}/${d.expectedReports} 件`;
+
+  renderClientHours(d);
+  renderClientDonut(d);
+  renderMemberHours(d);
+  renderDailyTrend(d);
+  renderClientTable(d);
+  renderMemberTable(d);
+  renderCategoryChart(d);
+}
+
+function renderClientHours(d) {
+  destroyChart('clientHoursChart');
+  chartInstances['clientHoursChart'] = new Chart(el('clientHoursChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: d.clients.map(c => c.name),
+      datasets: [{ label: '時間 (h)', data: d.clients.map(c => r1(c.hours)), backgroundColor: d.clients.map((_, i) => COLORS[i % COLORS.length]), borderRadius: 6, barPercentage: 0.7 }]
+    },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: '#f3f4f6' }, title: { display: true, text: '時間 (h)' } }, y: { grid: { display: false } } } }
+  });
+}
+
+function renderClientDonut(d) {
+  destroyChart('clientDonutChart');
+  chartInstances['clientDonutChart'] = new Chart(el('clientDonutChart').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: d.clients.map(c => c.name),
+      datasets: [{ data: d.clients.map(c => r1(c.hours)), backgroundColor: d.clients.map((_, i) => COLORS[i % COLORS.length]), borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 }, padding: 8 } }, tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.raw}h (${Math.round(ctx.raw / d.totalH * 100)}%)` } } } }
+  });
+}
+
+function renderMemberHours(d) {
+  destroyChart('memberHoursChart');
+  chartInstances['memberHoursChart'] = new Chart(el('memberHoursChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: d.members.map(m => m.name),
+      datasets: [{ label: '時間 (h)', data: d.members.map(m => r1(m.hours)), backgroundColor: d.members.map((_, i) => COLORS[i % COLORS.length]), borderRadius: 6, barPercentage: 0.7 }]
+    },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: '#f3f4f6' }, title: { display: true, text: '時間 (h)' } }, y: { grid: { display: false } } } }
+  });
+}
+
+function renderDailyTrend(d) {
+  destroyChart('dailyTrendChart');
+  chartInstances['dailyTrendChart'] = new Chart(el('dailyTrendChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: d.daily.map(x => x.date.slice(5)),
+      datasets: [
+        { type: 'bar', label: '稼働時間 (h)', data: d.daily.map(x => r1(x.hours)), backgroundColor: 'rgba(59,130,246,0.6)', borderRadius: 4, yAxisID: 'y' },
+        { type: 'line', label: 'メンバー数', data: d.daily.map(x => x.members.size), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', pointRadius: 4, pointBackgroundColor: '#f59e0b', tension: 0.3, yAxisID: 'y1' }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } }, scales: { x: { grid: { display: false } }, y: { position: 'left', title: { display: true, text: '時間' }, grid: { color: '#f3f4f6' } }, y1: { position: 'right', title: { display: true, text: '人数' }, grid: { display: false }, min: 0 } } }
+  });
+}
+
+function renderClientTable(d) {
+  const tb = el('clientTableBody');
+  if (d.clients.length === 0) { tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--gray-400)">データなし</td></tr>'; return; }
+  tb.innerHTML = d.clients.map(c => {
+    const pct = d.totalH > 0 ? Math.round(c.hours / d.totalH * 100) : 0;
+    return `<tr><td>${c.name}</td><td>${r1(c.hours)}h</td><td>${c.members.size}人</td><td>${c.reports}件</td><td>${pct}%</td></tr>`;
+  }).join('');
+  tb.innerHTML += `<tr class="total-row"><td>合計 (${d.clients.length}社)</td><td>${r1(d.totalH)}h</td><td>--</td><td>${d.totalReports}件</td><td>100%</td></tr>`;
+}
+
+function renderMemberTable(d) {
+  const tb = el('memberTableBody');
+  if (d.members.length === 0) { tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--gray-400)">データなし</td></tr>'; return; }
+  tb.innerHTML = d.members.map(m => {
+    const avg = m.reports > 0 ? r1(m.hours / m.reports) : 0;
+    const initial = m.name.charAt(0);
+    return `<tr><td><span class="member-avatar">${initial}</span>${m.name}</td><td>${r1(m.hours)}h</td><td>${m.clients.size}社</td><td>${m.reports}件</td><td>${avg}h</td></tr>`;
+  }).join('');
+  const totalH = d.members.reduce((s, m) => s + m.hours, 0);
+  tb.innerHTML += `<tr class="total-row"><td>合計 (${d.members.length}名)</td><td>${r1(totalH)}h</td><td>--</td><td>${d.totalReports}件</td><td>--</td></tr>`;
+}
+
+function renderCategoryChart(d) {
+  destroyChart('categoryChart');
+  chartInstances['categoryChart'] = new Chart(el('categoryChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: d.categories.map(c => c.name),
+      datasets: [{ label: '時間 (h)', data: d.categories.map(c => r1(c.hours)), backgroundColor: d.categories.map((_, i) => COLORS[i % COLORS.length]), borderRadius: 6, barPercentage: 0.6 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { grid: { color: '#f3f4f6' }, title: { display: true, text: '時間 (h)' } } } }
+  });
+}
+
+// ========== Helpers ==========
+function el(id) { return document.getElementById(id); }
+function r1(n) { return Math.round(n * 10) / 10; }
+function destroyChart(id) { if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; } }
+function setStatus(type, text) { el('statusDot').className = `status-dot ${type}`; el('statusText').textContent = text; }
+</script>
+</body>
+</html>
