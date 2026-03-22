@@ -1,0 +1,190 @@
+name: "メンバー導入（オンボーディング）"
+description: "AX事業部 工数トラッカーのセットアップ手順"
+title: "[導入] {メンバー名} セットアップ"
+labels: ["onboarding"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## AX事業部 工数トラッカー セットアップ
+
+        以下の手順を上から順に進めてください。
+        完了したらチェックを入れてください。
+
+        **前提条件**: `@digital-gorilla.co.jp` のGoogle Workspaceアカウントでログインしていること
+
+  - type: input
+    id: name
+    attributes:
+      label: "お名前"
+      placeholder: "例: 安永智也"
+    validations:
+      required: true
+
+  - type: input
+    id: email
+    attributes:
+      label: "デジゴリのメールアドレス"
+      description: "@digital-gorilla.co.jp のアドレスを入力してください"
+      placeholder: "例: t.yasunaga@digital-gorilla.co.jp"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: pre-check
+    attributes:
+      label: "Step 0: 事前確認"
+      options:
+        - label: "Chromeで `@digital-gorilla.co.jp` アカウントにログインしている"
+          required: true
+        - label: "Googleカレンダーに業務予定を入れる運用をしている（していなければ今日から開始）"
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## Step 1: GASプロジェクトを作成
+
+        1. **[Google Apps Script](https://script.google.com/)** を開く（デジゴリアカウントで）
+        2. 「新しいプロジェクト」をクリック
+        3. プロジェクト名を `AX工数トラッカー` に変更
+
+  - type: checkboxes
+    id: step1
+    attributes:
+      label: "Step 1 完了チェック"
+      options:
+        - label: "GASプロジェクト「AX工数トラッカー」を作成した"
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## Step 2: コードを貼り付け
+
+        1. GASエディタの `コード.gs` の中身を **すべて削除**
+        2. **[worklog-auto.gs](https://github.com/eternalrelief/ax-tracker/blob/main/scripts/worklog-auto.gs)** の内容を **すべてコピー** して貼り付け
+        3. 保存（Ctrl+S / Cmd+S）
+
+  - type: checkboxes
+    id: step2
+    attributes:
+      label: "Step 2 完了チェック"
+      options:
+        - label: "worklog-auto.gs のコードを貼り付けて保存した"
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## Step 3: 動作テスト
+
+        1. 上部のドロップダウンから `generateAndUpload` を選択
+        2. 「実行」ボタンをクリック
+        3. 初回は権限の承認が求められます → **すべて許可** してください
+           - 「このアプリはGoogleで確認されていません」→「詳細」→「〇〇（安全でないページ）に移動」
+           - カレンダーとメールの権限を許可
+        4. 実行ログに `✅ YYYY-MM-DD の日報をアップロードしました` と出ればOK
+
+        **エラーが出た場合**:
+        - `digital-gorilla.co.jp のアカウント専用です` → デジゴリアカウントでログインし直してください
+        - `Supabase upload failed` → このIssueにコメントしてください
+
+  - type: checkboxes
+    id: step3
+    attributes:
+      label: "Step 3 完了チェック"
+      options:
+        - label: "generateAndUpload を実行して成功した"
+        - label: "権限の承認を完了した"
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## Step 4: 日次トリガー設定
+
+        1. ドロップダウンから `setupTrigger` を選択
+        2. 「実行」ボタンをクリック
+        3. これで **毎朝9時** に前日の日報確認メールが届くようになります
+
+  - type: checkboxes
+    id: step4
+    attributes:
+      label: "Step 4 完了チェック"
+      options:
+        - label: "setupTrigger を実行した"
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## Step 5: ウェブアプリとしてデプロイ
+
+        1. 「デプロイ」→「新しいデプロイ」
+        2. 種類: **ウェブアプリ**
+        3. 次のユーザーとして実行: **自分**
+        4. アクセスできるユーザー: **自分のみ**
+        5. 「デプロイ」をクリック
+        6. 表示されるURLをコピーしてブラウザで開く → 確認画面が表示されればOK
+
+  - type: checkboxes
+    id: step5
+    attributes:
+      label: "Step 5 完了チェック"
+      options:
+        - label: "ウェブアプリとしてデプロイした"
+        - label: "確認画面がブラウザで表示された"
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## Step 6（任意）: 過去分のバックフィル
+
+        過去の日報もダッシュボードに反映したい場合:
+
+        1. ドロップダウンから `backfill` を選択（引数不要、デフォルト7日分）
+        2. 「実行」ボタンをクリック
+        3. 過去7日分の日報がSupabaseにアップロードされます
+
+        **注意**: バックフィルした日報は「確認なし」で直接保存されます。
+
+  - type: checkboxes
+    id: step6
+    attributes:
+      label: "Step 6 完了チェック（任意）"
+      options:
+        - label: "バックフィルを実行した（スキップする場合はチェック不要）"
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## セットアップ完了！
+
+        これで毎朝9時にメールが届きます。
+        リンクを開いて日報を確認・確定するだけでOKです。
+
+        **ダッシュボード**: https://ax-tracker.vercel.app
+
+        ---
+
+        ### カレンダーのコツ
+
+        予定タイトルの先頭に `[顧客名]` をつけると自動で顧客分類されます（任意）。
+        つけなくても、過去の確定データやゲストのドメインから自動推測します。
+
+        ```
+        [川口印刷] AI研修 準備       ← 顧客: 川口印刷（確度高）
+        MTG with 田中さん@丸善        ← ドメインから推測（確度中）
+        社内定例                      ← キーワード推測（確度中）
+        ```
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: "備考・質問"
+      description: "セットアップで問題が出たらここに書いてください"
+      placeholder: "例: Step 3でエラーが出ました"

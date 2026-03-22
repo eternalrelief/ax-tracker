@@ -34,6 +34,26 @@ const CATEGORY_RULES = [
   { pattern: /移動|ランチ|休憩/i, category: '非稼働' },
 ];
 
+// ========== ドメインチェック ==========
+
+/**
+ * 実行ユーザーが digital-gorilla.co.jp ドメインか検証
+ * ドメイン外のアカウントでは動作しない
+ */
+function verifyDomain_() {
+  const email = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail();
+  if (!email) throw new Error('Googleアカウントにログインしてください。');
+  const domain = email.split('@')[1];
+  if (domain !== CONFIG.COMPANY_DOMAIN) {
+    throw new Error(
+      `このツールは ${CONFIG.COMPANY_DOMAIN} のアカウント専用です。\n` +
+      `現在のアカウント: ${email}\n` +
+      `デジタルゴリラのGoogle Workspaceアカウントでログインし直してください。`
+    );
+  }
+  return email;
+}
+
 // ========== カレンダー読み取り + 推測 ==========
 
 function getCalendarEntries(dateStr) {
@@ -221,8 +241,8 @@ function saveKnownMappings_(uid, entries) {
  * 確認画面から呼ばれる: 修正済みデータを受け取って確定保存
  */
 function confirmWorklog(dateStr, entriesJson) {
+  const email = verifyDomain_(); // ドメインチェック
   const entries = JSON.parse(entriesJson);
-  const email = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail();
   const uid = hashUid(email);
   const name = extractName(email);
 
@@ -355,6 +375,7 @@ function extractName(email) {
 // ========== トリガー ==========
 
 function setupTrigger() {
+  verifyDomain_(); // ドメインチェック
   const triggers = ScriptApp.getProjectTriggers();
   for (const t of triggers) {
     if (t.getHandlerFunction() === 'dailyRun') ScriptApp.deleteTrigger(t);
@@ -394,9 +415,21 @@ function dailyRun() {
 // ========== Web App ==========
 
 function doGet(e) {
+  // ドメインチェック
+  let email;
+  try {
+    email = verifyDomain_();
+  } catch (err) {
+    return HtmlService.createHtmlOutput(
+      `<div style="font-family:sans-serif;max-width:500px;margin:60px auto;text-align:center;">` +
+      `<h2 style="color:#e74c3c;">アクセスできません</h2>` +
+      `<p style="margin:16px 0;color:#4b5563;">${err.message.replace(/\n/g, '<br>')}</p>` +
+      `<p style="font-size:13px;color:#9ca3af;">AX事業部 工数トラッカー</p></div>`
+    ).setTitle('アクセスエラー');
+  }
+
   const date = e.parameter.date || Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM-dd');
   const entries = getCalendarEntries(date);
-  const email = Session.getActiveUser().getEmail();
   const name = extractName(email);
 
   const html = HtmlService.createHtmlOutput(buildConfirmPage_(date, name, email, entries))
